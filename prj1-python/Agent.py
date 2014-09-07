@@ -44,10 +44,41 @@ class Agent:
     # @param problem the RavensProblem your agent should solve
     # @return your Agent's answer to this problem
     def Solve(self, problem):
-        problem = self.pythonize(problem)
-        pprint(problem)
+        pproblem = self.pythonize(problem)
+        pprint(pproblem)
         return "6"
     
+    def parse_attr(self, name, value):
+        lists = ['above', 'left-of', 'inside', 'overlaps']
+        bools = ['fill', 'vertical-flip']#, 'horizontal-flip']
+        sizes = ['size']
+        nums = ['angle']
+        shapes = ['shape']
+        
+        if name in lists:
+            value = value.split(',')
+        elif name in bools:
+            if value == 'yes':
+                value = True
+            else:
+                value = False
+        elif name in sizes:
+            if value == 'small':
+                value = 1
+            elif value == 'medium':
+                value = 2
+            elif value == 'large':
+                value = 3
+            else:
+                value = 0
+        elif name in nums:
+            value = float(value)
+        elif name in shapes:
+            pass
+        else:
+            print "unknown: %s-%s" % (name, value)
+        return value
+        
     def pythonize(self, problem):
         """Returns a pythonic version of a problem object"""
         ret = {}
@@ -58,7 +89,7 @@ class Agent:
             for obj in fig.getObjects():
                 attrs = {}
                 for attr in obj.getAttributes():
-                    attrs[attr.getName()] = attr.getValue()
+                    attrs[attr.getName()] = self.parse_attr(attr.getName(), attr.getValue())
                 objs[obj.getName()] = attrs
             figures[fig.getName()] = objs
             
