@@ -7,6 +7,10 @@
 # def Solve(self,problem)
 #
 # These methods will be necessary for the project's main method to run.
+
+from pprint import pprint
+
+
 class Agent:
     # The default constructor for your Agent. Make sure to execute any
     # processing necessary before your Agent starts solving problems here.
@@ -39,5 +43,26 @@ class Agent:
     #
     # @param problem the RavensProblem your agent should solve
     # @return your Agent's answer to this problem
-    def Solve(self,problem):
+    def Solve(self, problem):
+        problem = self.pythonize(problem)
+        pprint(problem)
         return "6"
+    
+    def pythonize(self, problem):
+        """Returns a pythonic version of a problem object"""
+        ret = {}
+        
+        figures = {}
+        for fig in problem.getFigures().values():
+            objs = {}
+            for obj in fig.getObjects():
+                attrs = {}
+                for attr in obj.getAttributes():
+                    attrs[attr.getName()] = attr.getValue()
+                objs[obj.getName()] = attrs
+            figures[fig.getName()] = objs
+            
+        ret['type'] = problem.getProblemType()
+        ret['name'] = problem.getName()
+        ret['figures'] = figures
+        return ret
