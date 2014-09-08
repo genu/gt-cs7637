@@ -44,9 +44,79 @@ class Agent:
     # @param problem the RavensProblem your agent should solve
     # @return your Agent's answer to this problem
     def Solve(self, problem):
-        pproblem = self.pythonize(problem)
-        pprint(pproblem)
-        return "6"
+        oproblem = problem
+        problem = self.pythonize(problem)
+        pprint(problem)
+        ret = '6'
+        
+        if problem['type'] == '2x1':
+            target_trans = self.build_transform(problem['figures']['A'],
+                                                problem['figures']['B'])
+            pprint(target_trans)
+            
+            choice_trans = {}
+            diffs = {}
+            for i in range(1, 7):
+                i = str(i)
+                choice_trans[i] = self.build_transform(problem['figures']['C'],
+                                                    problem['figures'][i])
+                diffs[i] = self.compare_transforms(target_trans, choice_trans[i])
+            
+            pprint(diffs)
+            
+            ranked = sorted(diffs, key=diffs.get)
+            # pick the one with the lowest diffs
+            ret = ranked[0] 
+            
+            actual_answer = oproblem.checkAnswer(ret)
+            if actual_answer == ret:
+                print('CORRECT: chose %s' % ret)
+            else:
+                print('INCORRECT: chose %s, wanted %s' % (ret, actual_answer))
+            
+        x = raw_input('Press enter to continue, q to quit... ')
+        if x.lower() == 'q':
+            exit()
+        return ret
+    
+    def compare_transforms(self, t1, t2):
+        diffs = 0
+        for t in t1:
+            if not t in t2:
+                diffs += 1
+                continue
+            if t1[t] != t2[t]:
+                diffs += 1
+        return diffs
+    
+    def build_transform(self, f1, f2):
+        """Builds a transformation graph between two figures"""
+        
+        # TODO: handle different naming of shapes
+        
+        graph = {}
+        
+        for shape in f1:
+            graph[shape] = []
+            if not shape in f2:
+                graph[shape] += ['deleted']
+                continue
+                
+            if f2[shape].get('size', 0) > f1[shape].get('size', 0):
+                graph[shape] += ['expanded']
+            if f2[shape].get('size', 0) < f1[shape].get('size', 0):
+                graph[shape] += ['shrunk']
+            if f2[shape].get('fill', False) == True and \
+                    f1[shape].get('fill', False) == False:
+                graph[shape] += ['filled']
+            if f2[shape].get('fill', False) == False and \
+                    f1[shape].get('fill', False) == True:
+                graph[shape] += ['unfilled']
+            if f2[shape].get('shape', 'square') != f1[shape].get('shape', 'square'):
+                graph[shape] += ['reshaped']
+                
+        
+        return graph
     
     def parse_attr(self, name, value):
         lists = ['above', 'left-of', 'inside', 'overlaps']
