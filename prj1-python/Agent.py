@@ -89,12 +89,68 @@ class Agent:
                 diffs += 1
         return diffs
     
+    
+    def build_transforms(self, f1, f2):
+        """Builds a set of transformation graphs between two figures,
+        and selects the most likely one by weighting"""
+        
+        #for shape in f1:
+        pass
+    
+    
+    def weight_transform_graph(self, graph):
+        score = 0
+        for shape in graph:
+            if len(shape) == 0:
+                # unchanged
+                score += 5
+                continue
+            for trans in shape:
+                if 'above' in trans or 'left-of' in trans or 'inside' in trans or 'overlaps' in trans:
+                    score += 4
+                if 'flipped' in trans:
+                    score += 4
+                elif 'filled' in trans:
+                    score += 4
+                elif 'rotated' in trans:
+                    score += 3
+                elif 'expanded' in trans or 'shrunk' in trans:
+                    score += 2
+                elif 'deleted' in trans:
+                    score += 1
+                elif 'reshaped':
+                    score += 0
+        return score
+    
+    def identify_trans(self, shape1, shape2):
+        positionals = ['above', 'left-of', 'inside', 'overlaps']
+        
+        trans = []
+        if shape2.get('size', 0) > shape1.get('size', 0):
+            trans += ['expanded']
+        if shape2.get('size', 0) < shape1.get('size', 0):
+            trans += ['shrunk']
+        if shape2.get('fill', False) == True and shape1.get('fill', False) == False:
+            trans += ['filled']
+        if shape2.get('fill', False) == False and shape1.get('fill', False) == True:
+            trans += ['unfilled']
+        if shape2.get('shape', 'square') != shape1.get('shape', 'square'):
+            trans += ['reshaped']
+        if shape2.get('angle', 0) != shape1.get('angle', 0):
+            angle_diff = (shape2.get('angle', 0) - shape1.get('angle', 0)) % 360
+            trans += ['rotated %f' % angle_diff]
+        for positional in positionals:
+            if shape2.get(positional, '') != shape1.get(positional, ''):
+                trans += [positional]
+        
+        return trans
+    
+    
     def build_transform(self, f1, f2):
         """Builds a transformation graph between two figures"""
         
-        # TODO: handle different naming of shapes?
+        # the possibility of shapes having different names is handled in build_transforms (plural)
         
-        positionals = ['above', 'left-of', 'inside', 'overlaps']
         
         graph = {}
         
@@ -103,25 +159,26 @@ class Agent:
             if not shape in f2:
                 graph[shape] += ['deleted']
                 continue
-                
-            if f2[shape].get('size', 0) > f1[shape].get('size', 0):
-                graph[shape] += ['expanded']
-            if f2[shape].get('size', 0) < f1[shape].get('size', 0):
-                graph[shape] += ['shrunk']
-            if f2[shape].get('fill', False) == True and \
-                    f1[shape].get('fill', False) == False:
-                graph[shape] += ['filled']
-            if f2[shape].get('fill', False) == False and \
-                    f1[shape].get('fill', False) == True:
-                graph[shape] += ['unfilled']
-            if f2[shape].get('shape', 'square') != f1[shape].get('shape', 'square'):
-                graph[shape] += ['reshaped']
-            if f2[shape].get('angle', 0) != f1[shape].get('angle', 0):
-                angle_diff = (f2[shape].get('angle', 0) - f1[shape].get('angle', 0)) % 360
-                graph[shape] += ['rotated %f' % angle_diff]
-            for positional in positionals:
-                if f2[shape].get(positional, '') != f1[shape].get(positional, ''):
-                    graph[shape] += [positional]
+            graph[shape] += self.identify_trans(f1[shape], f2[shape])
+            
+            # if f2[shape].get('size', 0) > f1[shape].get('size', 0):
+            #     graph[shape] += ['expanded']
+            # if f2[shape].get('size', 0) < f1[shape].get('size', 0):
+            #     graph[shape] += ['shrunk']
+            # if f2[shape].get('fill', False) == True and \
+            #         f1[shape].get('fill', False) == False:
+            #     graph[shape] += ['filled']
+            # if f2[shape].get('fill', False) == False and \
+            #         f1[shape].get('fill', False) == True:
+            #     graph[shape] += ['unfilled']
+            # if f2[shape].get('shape', 'square') != f1[shape].get('shape', 'square'):
+            #     graph[shape] += ['reshaped']
+            # if f2[shape].get('angle', 0) != f1[shape].get('angle', 0):
+            #     angle_diff = (f2[shape].get('angle', 0) - f1[shape].get('angle', 0)) % 360
+            #     graph[shape] += ['rotated %f' % angle_diff]
+            # for positional in positionals:
+            #     if f2[shape].get(positional, '') != f1[shape].get(positional, ''):
+            #         graph[shape] += [positional]
         
         return graph
     
