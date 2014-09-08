@@ -92,7 +92,9 @@ class Agent:
     def build_transform(self, f1, f2):
         """Builds a transformation graph between two figures"""
         
-        # TODO: handle different naming of shapes
+        # TODO: handle different naming of shapes?
+        
+        positionals = ['above', 'left-of', 'inside', 'overlaps']
         
         graph = {}
         
@@ -114,7 +116,12 @@ class Agent:
                 graph[shape] += ['unfilled']
             if f2[shape].get('shape', 'square') != f1[shape].get('shape', 'square'):
                 graph[shape] += ['reshaped']
-                
+            if f2[shape].get('angle', 0) != f1[shape].get('angle', 0):
+                angle_diff = (f2[shape].get('angle', 0) - f1[shape].get('angle', 0)) % 360
+                graph[shape] += ['rotated %f' % angle_diff]
+            for positional in positionals:
+                if f2[shape].get(positional, '') != f1[shape].get(positional, ''):
+                    graph[shape] += [positional]
         
         return graph
     
