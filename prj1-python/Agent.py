@@ -18,10 +18,11 @@ def pythonize(problem):
     
     def parse_attr(name, value):
         lists = ['above', 'left-of', 'inside', 'overlaps']
-        bools = ['fill', 'vertical-flip']#, 'horizontal-flip']
+        bools = ['vertical-flip']#, 'horizontal-flip']
         sizes = ['size']
         nums = ['angle']
         shapes = ['shape']
+        
         
         if name in lists:
             value = value.split(',')
