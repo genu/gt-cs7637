@@ -123,34 +123,21 @@ class Agent:
         figures = problem['figures']
         
         if problem['type'] == '2x1':
-            # print "********Identifying most likely transformation from A to B...*********"
-#             target_trans = self.build_best_transform(problem['figures']['A'], problem['figures']['B'])
-#             print "********Best transform:**********"
-#             pprint(target_trans)
-#
             print "******Identifying possile transformations from A to B...******"
             target_transforms = self.build_permuted_transforms(figures['A'], figures['B'])
+            
+            pprint(target_transforms)
 
             choice_transforms = {}
             diffs = {}
             for i in range(1, 7):
                 i = str(i)
-                # print "********Identifying most likely transformation from C to %s********" % i
-                # choice_trans[i] = self.build_best_transform(problem['figures']['C'], problem['figures'][i])
-                # pprint(choice_trans[i])
-                # diffs[i] = self.compare_transforms(target_trans, choice_trans[i])
-                
                 print "*******Identifying possible transfomrations from C to %s******" % i
                 choice_transforms[i] = self.build_permuted_transforms(figures['C'], figures[i])
+                pprint(choice_transforms[i])
                 
-            
-            # pprint(diffs)
-#
-#             ranked = sorted(diffs, key=diffs.get)
-#             # pick the one with the lowest diffs
-#             ret = ranked[0]
-#  
             best_score = float('inf')
+            best_weight = float('-inf')
 
             print "******Finding best combo...*******"
             for target_trans in target_transforms:
@@ -164,7 +151,25 @@ class Agent:
                             print('C->%s' % i)
                             pprint(choice_trans)
                             best_score = score
+                            best_weight = self.weight_transform_graph(target_trans)
                             ret = i
+                        elif score == best_score:
+                            weight = self.weight_transform_graph(target_trans)
+                            if weight > best_weight:
+                                print('****Better weighted combo found: C->%s, weight %d****' % (i, score))
+                                print('A->B')
+                                pprint(target_trans)
+                                print('C->%s' % i)
+                                pprint(choice_trans)
+                                best_weight = self.weight_transform_graph(target_trans)
+                                ret = i
+                        else:
+                            print('****ignoring C->%s, score %d****' % (i, score))
+                            print('A->B')
+                            pprint(target_trans)
+                            print('C->%s' % i)
+                            pprint(choice_trans)
+                            
             
             
             actual_answer = oproblem.checkAnswer(ret)
@@ -211,7 +216,7 @@ class Agent:
                     score -= 3
                 elif 'deleted' in trans:
                     score -= 4
-                elif 'reshaped':
+                elif 'reshaped' in trans:
                     score -= 5
         return score
         
@@ -227,12 +232,10 @@ class Agent:
             trans += ['expanded']
         if shape2.get('size', 0) < shape1.get('size', 0):
             trans += ['shrunk']
-        if shape2.get('fill', False) == True and shape1.get('fill', False) == False:
-            trans += ['filled']
-        if shape2.get('fill', False) == False and shape1.get('fill', False) == True:
-            trans += ['unfilled']
+        if shape2.get('fill', False) != shape1.get('fill', False):
+            trans += ['filled %s' % shape2.get('fill', False)]
         if shape2.get('shape', 'square') != shape1.get('shape', 'square'):
-            trans += ['reshaped']
+            trans += ['reshaped from %s to %s' % (shape1.get('shape', 'square'), shape2.get('shape', 'square'))]
         if shape2.get('angle', 0) != shape1.get('angle', 0):
             angle_diff = (shape2.get('angle', 0) - shape1.get('angle', 0)) % 360
             trans += ['rotated %f' % angle_diff]
@@ -241,18 +244,6 @@ class Agent:
                 trans += [positional + str(shape2.get(positional, ''))]
         
         return trans
-    
-    # def shuffle_fig(self, f):
-    #     """Rotates figure dict around so that X becomes Y, Y becomes Z, Z becomes X (for any number of elements)"""
-    #     old_shapes = sorted(f)
-    #     new_shapes = old_shapes[:]
-    #     new_shapes.append(new_shapes.pop(0)) # stick the 0th element at the end
-    #     new_f = {}
-    #
-    #     for i in range(len(old_shapes)):
-    #         new_f[new_shapes[i]] = f[old_shapes[i]]
-    #
-    #     return new_f
     
     
     def build_best_transform(self, f1, f2):
@@ -293,7 +284,11 @@ class Agent:
     def build_permuted_transforms(self, f1, f2):
         """Considers all possible transformations between two figures"""
         
-        f2_permutes = permute_fig_shapes(f2)
+        if len(f2) < 5:
+            f2_permutes = permute_fig_shapes(f2)
+        else:
+            print "Too many shapes - not permuting"
+            f2_permutes = [f2]
         
         ret = []
         for f in f2_permutes:
