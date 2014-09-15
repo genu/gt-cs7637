@@ -18,10 +18,11 @@ def pythonize(problem):
     
     def parse_attr(name, value):
         lists = ['above', 'left-of', 'inside', 'overlaps']
-        bools = ['vertical-flip']#, 'horizontal-flip']
+        bools = ['vertical-flip', 'horizontal-flip']
         sizes = ['size']
         nums = ['angle']
         shapes = ['shape']
+        fills = ['fill']
         
         
         if name in lists:
@@ -42,7 +43,7 @@ def pythonize(problem):
                 value = 0
         elif name in nums:
             value = float(value)
-        elif name in shapes:
+        elif name in shapes or name in fills:
             pass
         else:
             print "unknown: %s-%s" % (name, value)
@@ -134,7 +135,6 @@ class Agent:
                 i = str(i)
                 print "*******Identifying possible transfomrations from C to %s******" % i
                 choice_transforms[i] = self.build_permuted_transforms(figures['C'], figures[i])
-                pprint(choice_transforms[i])
                 
             best_score = float('inf')
             best_weight = float('-inf')
@@ -163,24 +163,17 @@ class Agent:
                                 pprint(choice_trans)
                                 best_weight = self.weight_transform_graph(target_trans)
                                 ret = i
-                        else:
-                            print('****ignoring C->%s, score %d****' % (i, score))
-                            print('A->B')
-                            pprint(target_trans)
-                            print('C->%s' % i)
-                            pprint(choice_trans)
                             
-            
-            
             actual_answer = oproblem.checkAnswer(ret)
             if actual_answer == ret:
                 print('CORRECT: chose %s' % ret)
             else:
                 print('INCORRECT: chose %s, wanted %s' % (ret, actual_answer))
             
-        x = raw_input('Press enter to continue, q to quit... ')
-        if x.lower() == 'q':
-            exit()
+        # x = raw_input('Press enter to continue, q to quit... ')
+        #         if x.lower() == 'q':
+        #             exit()
+
         return ret
     
     def compare_transforms(self, t1, t2):
@@ -239,6 +232,10 @@ class Agent:
         if shape2.get('angle', 0) != shape1.get('angle', 0):
             angle_diff = (shape2.get('angle', 0) - shape1.get('angle', 0)) % 360
             trans += ['rotated %f' % angle_diff]
+        # if shape2.get('horizontal-flip', False) != shape1.get('horizontal-flip', False):
+        #     trans += ['horizontal-flipped from %s to %s' % (shape1.get('horizontal-flip', False), shape2.get('horizontal-flip', False))]
+        # if shape2.get('vertical-flip', False) != shape1.get('vertical-flip', False):
+        #     trans += ['vertical-flipped from %s to %s' % (shape1.get('vertical-flip', False), shape2.get('vertical-flip', False))]
         for positional in positionals:
             if shape2.get(positional, None) != shape1.get(positional, None):
                 trans += [positional + str(shape2.get(positional, ''))]
@@ -246,45 +243,10 @@ class Agent:
         return trans
     
     
-    def build_best_transform(self, f1, f2):
-        """Builds a set of transformation graphs between two figures,
-        and selects the most likely one by weighting"""
-        
-        return self.build_transform(f1, f2)
-        
-        best_graph = {}
-        best_score = float('-inf')
-        
-        for i in range(len(f1)):
-            
-            f1 = self.shuffle_fig(f1) # try another combo
-            print("shuffled:")
-            pprint(f1)
-            print('*********')
-        
-            graph = {}
-            for shape in f1:
-                graph[shape] = []
-                if not shape in f2:
-                    graph[shape] += ['deleted']
-                    continue
-                graph[shape] += self.identify_trans(f1[shape], f2[shape])
-            
-            score = self.weight_transform_graph(graph)
-            pprint(graph)
-            print("Score: %d" % score)
-            if score > best_score:
-                print("(new best)")
-                best_graph = graph
-                best_score = score
-            
-        return best_graph
-        
-        
     def build_permuted_transforms(self, f1, f2):
-        """Considers all possible transformations between two figures"""
+        """Considers all possible transformations between two figures (unless there are a large number of figures)"""
         
-        if len(f2) < 5:
+        if len(f2) < 7:
             f2_permutes = permute_fig_shapes(f2)
         else:
             print "Too many shapes - not permuting"
@@ -298,9 +260,6 @@ class Agent:
     
     def build_transform(self, f1, f2):
         """Builds a transformation graph between two figures"""
-        
-        # the possibility of shapes having different names is handled in build_permuted_transforms
-        
         
         graph = {}
         
