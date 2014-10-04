@@ -7,6 +7,12 @@
 # def Solve(self,problem)
 #
 # These methods will be necessary for the project's main method to run.
+
+
+from pprint import pprint
+# from itertools import permutations
+
+
 class Agent:
     # The default constructor for your Agent. Make sure to execute any
     # processing necessary before your Agent starts solving problems here.
@@ -14,6 +20,8 @@ class Agent:
     # Do not add any variables to this signature; they will not be used by
     # main().
     def __init__(self):
+        # knowledge base - lets our Agent acquire and learn info from each problem
+        self.kb = {}
         pass
 
     # The primary method for solving incoming Raven's Progressive Matrices.
@@ -39,5 +47,285 @@ class Agent:
     #
     # @param problem the RavensProblem your agent should solve
     # @return your Agent's answer to this problem
-    def Solve(self,problem):
-        return "6"
+    def Solve(self, problem):
+        ret = '6'
+        
+        oproblem = problem
+        problem = pythonize(problem)
+        figures = problem['figures']
+        
+        # Debug code for jumping to specific problems
+        if not '2x1' in problem['name']:
+            return '8'
+        
+        pprint(problem)
+        self.scan_attrs(problem)
+        
+        # 2x1
+        if problem['type'] == '2x1':
+            target_rels = self.find_relationships(figures['A'], figures['B'])
+            print('A->B')
+            pprint(target_rels)
+            
+            scores = {}
+            
+            for i in range(1, 7):
+                i = str(i)
+                choice_rels = self.find_relationships(figures['C'], figures[i])
+                print('C->%s' % i)
+                pprint(choice_rels)
+                scores[i] = self.score_relationships(target_rels, choice_rels)
+                print('Score: %d' % scores[i])
+            
+            scores = sorted(scores.items(), key=lambda score:score[1], reverse=True)
+            pprint(scores)
+            print 'choosing %s with score of %d' % (scores[0][0], scores[0][1])
+            ret = scores[0][0]
+        
+        
+        # 2x2
+        # for fig in ['B', 'C']:
+        #     problem['figures'][fig] = self.get_renamed_figure(problem['figures']['A'], problem['figures'][fig])
+        #     rels = self.find_relationships(problem['figures']['A'], problem['figures'][fig])
+        #     print('A->%s' % fig)
+        #     pprint(rels)
+        
+        return ret
+
+    
+    
+    def scan_attrs(self, prob):
+        """Looks at the current problem's attributes, stores them in the KB"""
+        
+        # Keep track of the names of objects in the current problem
+        # (useful to determine if attributes are referring to other objects)
+        object_names = []
+        for fig in prob['figures'].values():
+            for object_name in fig.keys():
+                if not object_name in object_names:
+                    object_names.append(object_name)
+        
+        if not 'attributes' in self.kb:
+            self.kb['attributes'] = {}
+        
+        attrs = self.kb['attributes']
+        
+        # process the attributes in the current problem
+        for fig in prob['figures'].values():
+            for obj in fig.values():
+                for attr, subvalues in obj.items():
+                    if not attr in attrs:
+                        attrs[attr] = {'values': [],
+                                       'relative': 'unknown',
+                                       'multi': 'unknown',
+                                       'count': 0}
+                    data = attrs[attr]
+                    
+                    data['count'] += 1
+                    
+                    if data['multi'] == 'unknown':
+                        if len(subvalues) > 1:
+                            data['multi'] = 'yes'
+                        else:
+                            data['multi'] = 'no'
+                    else:
+                        if len(subvalues) > 1 and data['multi'] == 'no':
+                            data['multi'] = 'sometimes'
+                        elif len(subvalues) == 1 and data['multi'] == 'yes':
+                            data['multi'] = 'sometimes'
+                    
+                    # process each subvalue
+                    values = data['values']
+                    for subvalue in subvalues:
+                        # check to see if this attr refers to other objects
+                        relative = False
+                        if subvalue in object_names:
+                            relative = True
+                            if data['relative'] == 'unknown':
+                                data['relative'] = 'yes'
+                            elif data['relative' ] == 'no':
+                                data['relative'] = 'sometimes'
+                        else:
+                            if data['relative'] == 'unknown':
+                                data['relative'] = 'no'
+                            elif data['relative'] == 'yes':
+                                data['relative'] = 'sometimes'
+                        
+                        # add this to the seen values if it isn't already
+                        # in there and it isn't a relative value
+                        if not relative and not subvalue in values:
+                            values.append(subvalue)
+        
+        # update the kb's attribute priorities based upon frequency of encounters
+    
+        sorted_attrs = sorted(attrs.items(), key=lambda attr: attr[1]['count'], reverse=True)
+        priorities = self.kb['attribute_priorities'] = []
+        for attr in sorted_attrs:
+            priorities.append(attr[0])
+    
+    
+    def get_renamed_figure(self, fig1, fig2):
+        """Renames objects in fig2 based on analogies found from fig1 to fig2"""
+        analogies = self.find_analogies(fig1, fig2)
+        
+        for obj2 in fig2:
+            if not obj2 in analogies.values():
+                analogies['_%s' % obj2] = obj2 # add an underscore to prevent name conflicts
+
+        pprint(analogies)
+        
+        ret = {}
+        
+        for obj1, obj2 in analogies.items():
+            if obj2 in fig2:
+                ret[obj1] = fig2[obj2]
+        
+        return ret
+        
+        
+    
+    
+    def find_analogies(self, fig1, fig2):
+        """Finds analogies from fig1 to fig2. Recommend making fig1 the simpler fig."""
+        
+        analogies = {} # map from fig1_name: fig2_name
+        
+        for obj1, attrs1 in fig1.items():
+            best_score = -1
+            best_match = None
+            
+            for obj2, attrs2 in fig2.items():
+                if obj2 in analogies.values():
+                    # we've already mapped this one - skip it
+                    # TODO: maybe deal with this if we find a better match?
+                    continue
+                score = 0
+                
+                for attr, value1 in attrs1.items():
+                    if not attr in attrs2:
+                        # doesn't exist in other object, skip it
+                        continue
+                    
+                    value2 = attrs2[attr]
+                    if self.kb['attributes'][attr]['relative'] != 'no':
+                        # this is a relative attribute, so names will be different
+                        # just look at the length of the value
+                        if len(value1) == len(value2):
+                            score += 2
+                    elif value1 == value2:
+                        # exact match, increase score
+                        score += 1
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = obj2
+            
+            analogies[obj1] = best_match
+        
+        return analogies
+                
+    def find_relationships(self, fig1, fig2):
+        """Finds the relationships from fig1 to fig2."""
+        
+        rels = []
+        
+        # relationship based on # of objects
+        if len(fig1) == len(fig2):
+            rels.append({'obj': 'all', 'attr': 'count', 'type': 'match'})
+        else:
+            rels.append({'obj': 'all', 'attr': 'count', 'type': 'mismatch'})
+        
+        for obj, attrs in fig1.items():
+            if not obj in fig2:
+                # object has been removed in fig2
+                rels.append({'obj': obj, 'attr': 'all', 'type': 'removed'})
+                continue
+        
+        for obj in fig2:
+            if not obj in fig1:
+                # object is only present in fig2
+                rels.append({'obj': obj, 'attr': 'all', 'type': 'added'})
+                continue
+            
+            for attr in fig2[obj]:
+                rel = {'obj': obj, 'attr': attr}
+                
+                if attr in fig1[obj] and fig1[obj][attr] == fig2[obj][attr]:
+                    rel['type'] = 'match'
+                else:
+                    partial_match = False
+                    for subvalue in fig2[obj][attr]:
+                        if attr in fig1[obj] and subvalue in fig1[obj][attr]:
+                            partial_match = True
+                    
+                    if partial_match:
+                        rel['type'] = 'partial'
+                    else:
+                        rel['type'] = 'mismatch'
+                        rel['old_values'] = ','.join(fig1[obj].get(attr, 'missing'))
+                        rel['new_values'] = ','.join(fig2[obj][attr])
+                        if rel['new_values'].isdigit() and rel['old_values'].isdigit():
+                            rel['diff'] = float(rel['new_values']) - float(rel['old_values'])
+                
+                rels.append(rel)
+        
+        return rels
+    
+
+    def score_relationships(self, rels1, rels2):
+        
+        # keep track of score and max score to give a weighted result
+        
+        # one point if they have the same number of entries
+        if len(rels1) == len(rels2):
+            score = 1
+        else:
+            score = 0
+        max_score = 1
+        
+        # look for each of the relationships from rels1 in rels2
+        for rel in rels1:
+            # assign the current points based upon the type of match
+            if rel['type'] == 'match':
+                cur_points = 1
+            elif rel['type'] == 'mismatch':
+                cur_points = 0.5
+            else:
+                cur_points = 0.25
+            
+            # give a bonus for higher "priority" attributes
+            if rel['attr'] in self.kb['attribute_priorities']:
+                priority_rank = self.kb['attribute_priorities'].index(rel['attr'])
+                if priority_rank < 5:
+                    cur_points += 1.0/(priority_rank + 1)
+            
+            max_score += cur_points
+            
+            if rel in rels2:
+                score += cur_points
+        
+        # normalize score
+        return score / float(max_score)
+    
+
+
+def pythonize(problem):
+    """Returns a pythonic version of a problem object"""
+    
+    ret = {}
+    ret['type'] = problem.getProblemType()
+    ret['name'] = problem.getName()
+    ret['figures'] = figures = {}
+    
+    for fig in problem.getFigures().values():
+        figures[fig.getName()] = objs = {}
+        for obj in fig.getObjects():
+            objs[obj.getName()] = attrs = {}
+            for attr in obj.getAttributes():
+                value = attr.getValue()
+                values = [value]
+                if ',' in value:
+                    values = value.split(',')
+                attrs[attr.getName()] = values
+    
+    return ret
