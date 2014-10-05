@@ -58,12 +58,24 @@ class Agent:
         if not '2x1' in problem['name']:
             return '8'
         
-        pprint(problem)
+        #pprint(problem)
+        print problem['name']
         self.scan_attrs(problem)
         
         # 2x1
         if problem['type'] == '2x1':
+            old_b = figures['B']
+            # remap B's parts to A's based on similarity
+            figures['B'] = self.get_renamed_figure(figures['A'], figures['B'])
             target_rels = self.find_relationships(figures['A'], figures['B'])
+            print('A')
+            pprint(figures['A'])
+            if old_b != figures['B']:
+                print('ORIGINAL B')
+                pprint(old_b)
+                
+            print('REMAPPED B')
+            pprint(figures['B'])
             print('A->B')
             pprint(target_rels)
             
@@ -71,15 +83,18 @@ class Agent:
             
             for i in range(1, 7):
                 i = str(i)
+                old_fig = figures[i]
+                # remap choice's parts to C's based on similarity
+                figures[i] = self.get_renamed_figure(figures['C'], figures[i])
                 choice_rels = self.find_relationships(figures['C'], figures[i])
                 print('C->%s' % i)
                 pprint(choice_rels)
                 scores[i] = self.score_relationships(target_rels, choice_rels)
-                print('Score: %d' % scores[i])
+                print('Score: %f' % scores[i])
             
             scores = sorted(scores.items(), key=lambda score:score[1], reverse=True)
             pprint(scores)
-            print 'choosing %s with score of %d' % (scores[0][0], scores[0][1])
+            print 'choosing %s with score of %f' % (scores[0][0], scores[0][1])
             ret = scores[0][0]
         
         
@@ -171,7 +186,8 @@ class Agent:
         for obj2 in fig2:
             if not obj2 in analogies.values():
                 analogies['_%s' % obj2] = obj2 # add an underscore to prevent name conflicts
-
+        
+        print "Analogies:"
         pprint(analogies)
         
         ret = {}
@@ -188,41 +204,67 @@ class Agent:
     def find_analogies(self, fig1, fig2):
         """Finds analogies from fig1 to fig2. Recommend making fig1 the simpler fig."""
         
-        analogies = {} # map from fig1_name: fig2_name
+        analogies = {} # map from fig1_name: (fig2_name, score)
         
         for obj1, attrs1 in fig1.items():
-            best_score = -1
-            best_match = None
+            matches = {}
             
             for obj2, attrs2 in fig2.items():
-                if obj2 in analogies.values():
-                    # we've already mapped this one - skip it
-                    # TODO: maybe deal with this if we find a better match?
-                    continue
                 score = 0
+                max_score = 0
                 
                 for attr, value1 in attrs1.items():
+                    cur_points = 1
                     if not attr in attrs2:
                         # doesn't exist in other object, skip it
                         continue
                     
+                    if attr in self.kb['attribute_priorities']:
+                        priority_rank = self.kb['attribute_priorities'].index(attr)
+                        if priority_rank < 5:
+                            cur_points += 2.0/(priority_rank + 1)
+
+
                     value2 = attrs2[attr]
                     if self.kb['attributes'][attr]['relative'] != 'no':
+                        cur_points += 1
                         # this is a relative attribute, so names will be different
                         # just look at the length of the value
                         if len(value1) == len(value2):
-                            score += 2
+                            score += cur_points
                     elif value1 == value2:
                         # exact match, increase score
-                        score += 1
-                
-                if score > best_score:
-                    best_score = score
-                    best_match = obj2
+                        score += cur_points
+                    
+                    max_score += cur_points
+                        
+                matches[obj2] = score / float(max_score)
             
-            analogies[obj1] = best_match
+            analogies[obj1] = sorted(matches.items(), key=lambda match: match[1], reverse=True)
         
-        return analogies
+        ret = {}
+        
+        # find the best match for each spot
+        for i in range(len(fig1) - 1, -1, -1):
+            # resort each time through the loop to account for deleted possibilities
+            pprint(analogies)
+            sorted_analogies = sorted(analogies.items(), key=lambda analogy: analogy[1][0][1], reverse=False)
+            
+            pprint(sorted_analogies)
+            ret[sorted_analogies[i][0]] = sorted_analogies[i][1][0][0]
+            
+            for j in range(i - 1, -1, -1):
+                for k in range(len(sorted_analogies[j][1]) - 1, -1, -1):
+                    if sorted_analogies[j][1][k][0] == sorted_analogies[i][1][0][0]:
+                        obj1 = sorted_analogies[j][0]
+                        obj2 = sorted_analogies[j][1][k]
+                        del analogies[obj1][k]
+                        if len(analogies[obj1]) == 0:
+                            del analogies[obj1]
+                        
+        
+        # pprint(ret)
+        return ret
                 
     def find_relationships(self, fig1, fig2):
         """Finds the relationships from fig1 to fig2."""
@@ -262,10 +304,12 @@ class Agent:
                         rel['type'] = 'partial'
                     else:
                         rel['type'] = 'mismatch'
-                        rel['old_values'] = ','.join(fig1[obj].get(attr, 'missing'))
+                        rel['old_values'] = ','.join(fig1[obj].get(attr, ['missing']))
                         rel['new_values'] = ','.join(fig2[obj][attr])
                         if rel['new_values'].isdigit() and rel['old_values'].isdigit():
                             rel['diff'] = float(rel['new_values']) - float(rel['old_values'])
+                            del rel['old_values']
+                            del rel['new_values']
                 
                 rels.append(rel)
         
@@ -303,6 +347,7 @@ class Agent:
             
             if rel in rels2:
                 score += cur_points
+                
         
         # normalize score
         return score / float(max_score)
