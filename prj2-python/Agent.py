@@ -296,6 +296,7 @@ class Agent:
             obj2 = sorted_analogies[0][1][0][0]
             
             ret[obj1] = obj2
+            del analogies[obj1]
             
             # remove obj2 from any other analogies findings
             for i in analogies.keys():
@@ -376,7 +377,7 @@ class Agent:
             if rel['type'] == 'match':
                 cur_points = 1
             elif rel['type'] == 'mismatch':
-                cur_points = 0.5
+                cur_points = 1
             else:
                 cur_points = 0.25
             
