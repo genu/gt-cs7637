@@ -55,8 +55,8 @@ class Agent:
         figures = problem['figures']
         
         # Debug code for jumping to specific problems
-        if not '2x1' in problem['name']:
-            return '8'
+        # if not '2x2' in problem['name']:
+        #     return '8'
         
         #pprint(problem)
         print problem['name']
@@ -99,6 +99,46 @@ class Agent:
         
         
         # 2x2
+        if problem['type'] == '2x2':
+            # remap B and C's parts to A's based on similarity
+            figures['B'] = self.get_renamed_figure(figures['A'], figures['B'])
+            figures['C'] = self.get_renamed_figure(figures['A'], figures['C'])
+            
+            x_target_rels = self.find_relationships(figures['A'], figures['B'])
+            y_target_rels = self.find_relationships(figures['A'], figures['C'])
+            
+            print('A->B')
+            pprint(x_target_rels)
+            print('A->C')
+            pprint(y_target_rels)
+            
+            scores = {}
+            
+            for i in range(1, 7):
+                i = str(i)
+                # remap choice's parts to C's based on similarity
+                x_fig = self.get_renamed_figure(figures['C'], figures[i])
+                x_choice_rels = self.find_relationships(figures['C'], x_fig)
+                print('C->%s' % i)
+                pprint(x_choice_rels)
+                x_score = self.score_relationships(x_target_rels, x_choice_rels)
+                print('Score: %f' % x_score)
+
+                y_fig = self.get_renamed_figure(figures['B'], figures[i])
+                y_choice_rels = self.find_relationships(figures['B'], y_fig)
+                print('B->%s' % i)
+                pprint(y_choice_rels)
+                y_score = self.score_relationships(y_target_rels, y_choice_rels)
+                print('Score: %f' % y_score)
+                
+                scores[i] = x_score + y_score
+                
+            
+            scores = sorted(scores.items(), key=lambda score:score[1], reverse=True)
+            pprint(scores)
+            print 'choosing %s with score of %f' % (scores[0][0], scores[0][1])
+            ret = scores[0][0]
+        
         # for fig in ['B', 'C']:
         #     problem['figures'][fig] = self.get_renamed_figure(problem['figures']['A'], problem['figures'][fig])
         #     rels = self.find_relationships(problem['figures']['A'], problem['figures'][fig])
@@ -204,6 +244,9 @@ class Agent:
     def find_analogies(self, fig1, fig2):
         """Finds analogies from fig1 to fig2. Recommend making fig1 the simpler fig."""
         
+        if len(fig1) == 0 or len(fig2) == 0:
+            return {}
+        
         analogies = {} # map from fig1_name: (fig2_name, score)
         
         for obj1, attrs1 in fig1.items():
@@ -242,29 +285,29 @@ class Agent:
             
             analogies[obj1] = sorted(matches.items(), key=lambda match: match[1], reverse=True)
         
-        ret = {}
+        ret = {} # map from obj1: obj2
         
-        # find the best match for each spot
-        for i in range(len(fig1) - 1, -1, -1):
-            # resort each time through the loop to account for deleted possibilities
+        while len(analogies) > 0:
             pprint(analogies)
-            sorted_analogies = sorted(analogies.items(), key=lambda analogy: analogy[1][0][1], reverse=False)
-            
+            sorted_analogies = sorted(analogies.items(), key=lambda analogy: analogy[1][0][1], reverse=True)
             pprint(sorted_analogies)
-            ret[sorted_analogies[i][0]] = sorted_analogies[i][1][0][0]
             
-            for j in range(i - 1, -1, -1):
-                for k in range(len(sorted_analogies[j][1]) - 1, -1, -1):
-                    if sorted_analogies[j][1][k][0] == sorted_analogies[i][1][0][0]:
-                        obj1 = sorted_analogies[j][0]
-                        obj2 = sorted_analogies[j][1][k]
-                        del analogies[obj1][k]
-                        if len(analogies[obj1]) == 0:
-                            del analogies[obj1]
-                        
+            obj1 = sorted_analogies[0][0]
+            obj2 = sorted_analogies[0][1][0][0]
+            
+            ret[obj1] = obj2
+            
+            # remove obj2 from any other analogies findings
+            for i in analogies.keys():
+                for j in range(len(analogies[i]) - 1, -1, -1):
+                    if analogies[i][j][0] == obj2:
+                        del analogies[i][j]
+                if len(analogies[i]) == 0:
+                    del analogies[i]
+            
         
-        # pprint(ret)
         return ret
+        
                 
     def find_relationships(self, fig1, fig2):
         """Finds the relationships from fig1 to fig2."""
