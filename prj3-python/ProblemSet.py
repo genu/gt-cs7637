@@ -66,12 +66,12 @@ class ProblemSet:
         line = self.getNextLine(problem)
         while not line=="":
             if not line.startswith("\t"):
-                #if self.tryParseInt(line):
-                #    i=random.randint(0,len(options)-1)
-                #    if currentAnswer==line:
-                #        answer=options[i]
-                #    line=options[i]
-                #    options.remove(options[i])
+                if self.tryParseInt(line):
+                   i=random.randint(0,len(options)-1)
+                   if currentAnswer==line:
+                       answer=options[i]
+                   line=options[i]
+                   options.remove(options[i])
                 newFigure=RavensFigure(line)
                 figures.append(newFigure)
                 currentFigure=newFigure

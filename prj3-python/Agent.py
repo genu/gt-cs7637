@@ -58,7 +58,7 @@ class Agent:
         # if not '2x2' in problem['name']:
         #     return '8'
         
-        #pprint(problem)
+        pprint(problem)
         print problem['name']
         self.scan_attrs(problem)
         

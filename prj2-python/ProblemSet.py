@@ -66,7 +66,7 @@ class ProblemSet:
         line = self.getNextLine(problem)
         while not line=="":
             if not line.startswith("\t"):
-                #if self.tryParseInt(line):
+                # if self.tryParseInt(line):
                 #    i=random.randint(0,len(options)-1)
                 #    if currentAnswer==line:
                 #        answer=options[i]

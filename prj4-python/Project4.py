@@ -24,9 +24,15 @@ def main():
             # You may also write your own problems.
 
     for file in os.listdir("Problems (Image Data)"): # One problem set per folder in /Problems/
+    	if file.startswith("."):
+    		continue # skip hidden files
+    
         newSet = VisualProblemSet(file)       # Each problem set is named after the folder in /Problems/
         sets.append(newSet)
         for problem in os.listdir("Problems (Image Data)" + os.sep + file):  # Each file in the problem set folder becomes a problem in that set.
+            if problem.startswith("."):
+        		continue # skip hidden files
+    
             newSet.addProblem(file, problem)
 
     # Initializing problem-solving agent from Agent.java
