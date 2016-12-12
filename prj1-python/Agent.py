@@ -116,6 +116,7 @@ class Agent:
     # @param problem the RavensProblem your agent should solve
     # @return your Agent's answer to this problem
     def Solve(self, problem):
+        if not "05" in problem.name: return "-1"
         oproblem = problem
         problem = pythonize(problem)
         pprint(problem)
